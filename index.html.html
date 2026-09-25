@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YugMe AI Studio</title>
+    <!-- Include the completely free, official Gradio Client library -->
+    <script type="module">
+        import { Client } from "https://jsdelivr.net";
+        window.GradioClient = Client;
+    </script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent: #2563eb;
+            --text: #f8fafc;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 { text-align: center; color: #3b82f6; margin-bottom: 8px;}
+        p.subtitle { text-align: center; color: #94a3b8; margin-top: 0; font-size: 14px; }
+        
+        .upload-section {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px dashed #475569;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        input[type="file"] { display: none; }
+        .upload-btn {
+            background: var(--accent);
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: inline-block;
+            font-weight: bold;
+        }
+        #preview {
+            max-width: 120px;
+            border-radius: 8px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 12px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: 0.2s;
+            text-align: center;
+        }
+        .card:hover { border-color: #475569; }
+        .card.selected { border-color: #3b82f6; background: #1e3a8a; }
+        .card .emoji { font-size: 28px; display: block; margin-bottom: 6px; }
+        .card .title { font-size: 14px; font-weight: bold; }
+
+        .action-btn {
+            width: 100%;
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .action-btn:disabled { background: #475569; cursor: not-allowed; }
+
+        .result-section {
+            margin-top: 24px;
+            text-align: center;
+        }
+        #resultImg {
+            width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
+            display: none;
+        }
+        .loader {
+            display: none;
+            color: #fbbf24;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>YugMe AI Studio</h1>
+    <p class="subtitle">Step into history with instant, recognizable face-swapping</p>
+
+    <!-- Upload Input Box -->
+    <div class="upload-section">
+        <label for="selfieInput" class="upload-btn">📸 Select Your Selfie</label>
+        <input type="file" id="selfieInput" accept="image/*">
+        <br><img id="preview" alt="Preview">
+    </div>
+
+    <h3>Select Your Historical Setting:</h3>
+    <!-- The Locations Grid -->
+    <div class="grid" id="locationGrid"></div>
+
+    <!-- Generate Output Action Trigger -->
+    <button class="action-btn" id="genBtn" disabled>Generate Portrait</button>
+
+    <div class="result-section">
+        <div class="loader" id="statusText">⏳ Processing structural face mapping... Please wait...</div>
+        <img id="resultImg" src="" alt="Your Historical Portrait">
+    </div>
+</div>
+
+<script>
+    // Pure Database Array containing your target locations and accurate styling rules
+    const locations = [
+        { id: 1, name: "Ancient Babylon", emoji: "🦁", prompt: "High-fidelity historical portrait, executing flawless likeness retention of the source face. Subject's face is subtly textured by desert wind but strictly preserving original structural facial geometry. Draped in royal Mesopotamian deep blue wool robes with gold fringe. Background: Ishtar Gate of Babylon." },
+        { id: 2, name: "Ancient Persia", emoji: "🏛️", prompt: "Cinematic ancient epic lighting, macro shot utilizing InstantID facial architecture to lock and protect the user's exact facial structure. Authentic Achaemenid Persian silk tunic with gold thread. Background: Grand stone staircases of Persepolis, Iran." },
+        { id: 3, name: "Bamiyan Valley", emoji: "🛕", prompt: "Highly detailed 8k photography focusing on crisp realism, ensuring the user's face is instantly recognisable with sharp features. Wrapped in rugged silk and wool trade road shawls. Background: Bamiyan Valley, Afghanistan." },
+        { id: 4, name: "Great Wall of China", emoji: "🧱", prompt: "Dramatic atmospheric mountain lighting, maintaining identical structural facial proportions of the source user. Medieval Ming Dynasty scale armour. Background: Standing atop a stone watchtower of the Great Wall of China." },
+        { id: 5, name: "Old Jerusalem", emoji: "🏰", prompt: "Moody, historic oil-painting texture, securing strict facial feature mapping to retain the user's true identity. Medieval merchant in heavy linen tunics. Background: Limestone alleyways of Old City of Jerusalem, Israel." },
+        { id: 6, name: "Amer Fort", emoji: "⚔️", prompt: "Vibrant, sun-drenched grand portrait, applying deep facial recognition anchoring. Heavy royal Rajasthani antique jewelry, rich brocade silk garments, and a colorful bandhani royal turban. Background: Sheesh Mahal at Amer Fort, Jaipur, Rajasthan." },
+        { id: 7, name: "Victoria Terminus", emoji: "🚂", prompt: "Authentic vintage 19th-century street photography look, using advanced FaceID anchoring. Formal late-Victorian attire, lightweight linen summer suits. Background: Bustling platform of Victoria Terminus in Mumbai." },
+        { id: 8, name: "Monument Valley", emoji: "🤠", prompt: "Sun-baked, high-contrast Kodachrome film look, keeping the user's face completely recognisable. Dressed in a rugged leather vest, cowboy hat. Background: Monument Valley, America." },
+        { id: 9, name: "London Fog", emoji: "🕰️", prompt: "Heavy photographic silver grain, ensuring the user's eyes, jawline, and nose shape match the original photo perfectly. Sharp Victorian tailored wool overcoat. Background: Big Ben, London, UK." },
+        { id: 10, name: "Nordic Snow Forest", emoji: "🌲", prompt: "Crisp, cold winter daylight macro shot, preserving the exact underlying facial structure of the user. Heavy, traditional hand-knitted Finnish wool sweater. Background: Snow-blanketed pine forest in Finland." }
+    ];
+
+    let selectedPrompt = "";
+    let uploadedBlob = null;
+
+    // Build Layout UI Automatically
+    const grid = document.getElementById('locationGrid');
+    locations.forEach(loc => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<span class="emoji">${loc.emoji}</span><span class="title">${loc.name}</span>`;
+        card.onclick = () => {
+            document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            selectedPrompt = loc.prompt;
+            checkReady();
+        };
+        grid.appendChild(card);
+    });
+
+    // Handle Local Image Upload and Display Preview
+    document.getElementById('selfieInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            uploadedBlob = file;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = document.getElementById('preview');
+                img.src = event.target.result;
+                img.style.display = 'inline-block';
+                checkReady();
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+
+    function checkReady() {
+        if(uploadedBlob && selectedPrompt) {
+            document.getElementById('genBtn').disabled = false;
+        }
+    }
+
+    // Direct, Real-time Free API Face Swap Function Execution
+    document.getElementById('genBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('genBtn');
+        const loader = document.getElementById('statusText');
+        const resultImg = document.getElementById('resultImg');
+        
+        btn.disabled = true;
+        loader.style.display = 'block';
+        resultImg.style.display = 'none';
+
+        try {
+            // Establish direct link to open-source Hugging Face API without API keys
+            const app = await window.GradioClient.connect("InstantX/InstantID");
+            
+            // Execute the model logic passing the raw image blob data along with location parameters
+            const result = await app.predict("/predict", [
+                uploadedBlob,       // Face reference image input
+                selectedPrompt,     // Prompt instruction context string
+                "",                 // Negative prompt parameter field
+                1.0,                // Identity structural strength scale value
+                0.8,                // Image adaptation parameter coefficient
+                30,                 // Diffusion step iterations counter
