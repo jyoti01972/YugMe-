@@ -39,7 +39,8 @@
         input[type="file"] { display: none; }
         .upload-btn {
             background: var(--accent);
-            padding: 10px 20px;
+            color: white;
+            padding: 12px 20px;
             border-radius: 6px;
             cursor: pointer;
             display: inline-block;
@@ -61,7 +62,7 @@
         .card {
             background: var(--card-bg);
             border-radius: 10px;
-            padding: 12px;
+            padding: 16px;
             cursor: pointer;
             border: 2px solid transparent;
             transition: 0.2s;
@@ -69,8 +70,20 @@
         }
         .card:hover { border-color: #475569; }
         .card.selected { border-color: #3b82f6; background: #1e3a8a; }
-        .card .emoji { font-size: 28px; display: block; margin-bottom: 6px; }
+        .card .emoji { font-size: 32px; display: block; margin-bottom: 6px; }
         .card .title { font-size: 14px; font-weight: bold; }
+
+        .prompt-box {
+            background: #020617;
+            border: 1px solid #334155;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #cbd5e1;
+            margin-bottom: 20px;
+            display: none;
+            word-break: break-word;
+        }
 
         .action-btn {
             width: 100%;
@@ -82,25 +95,11 @@
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
+            text-align: center;
+            display: block;
+            text-decoration: none;
         }
         .action-btn:disabled { background: #475569; cursor: not-allowed; }
-
-        .result-section {
-            margin-top: 24px;
-            text-align: center;
-        }
-        #resultImg {
-            width: 100%;
-            border-radius: 12px;
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
-            display: none;
-        }
-        .loader {
-            display: none;
-            color: #fbbf24;
-            font-weight: bold;
-            margin: 15px 0;
-        }
     </style>
 </head>
 <body>
@@ -119,15 +118,12 @@
     <h3>Select Your Historical Setting:</h3>
     <div class="grid" id="locationGrid"></div>
 
-    <button class="action-btn" id="genBtn" disabled>Generate Portrait</button>
+    <h3>Your Face-Swap Instructions:</h3>
+    <div class="prompt-box" id="promptDisplay">Select a location to reveal its AI prompt structure.</div>
 
-    <div class="result-section">
-        <div class="loader" id="statusText">⏳ Processing structural face mapping... Please wait...</div>
-        <img id="resultImg" src="" alt="Your Historical Portrait">
-    </div>
+    <button class="action-btn" id="genBtn" disabled>1. Copy Instructions & Open Studio</button>
 </div>
 
-<!-- Load UI Logic instantly first -->
 <script>
     const locations = [
         { id: 1, name: "Ancient Babylon", emoji: "🦁", prompt: "High-fidelity historical portrait, executing flawless likeness retention of the source face. Subject's face is subtly textured by desert wind but strictly preserving original structural facial geometry. Draped in royal Mesopotamian deep blue wool robes with gold fringe. Background: Ishtar Gate of Babylon." },
@@ -143,9 +139,12 @@
     ];
 
     let selectedPrompt = "";
-    let uploadedFile = null;
+    let imageSelected = false;
 
     const grid = document.getElementById('locationGrid');
+    const promptDisplay = document.getElementById('promptDisplay');
+    const genBtn = document.getElementById('genBtn');
+
     locations.forEach(loc => {
         const card = document.createElement('div');
         card.className = 'card';
@@ -154,15 +153,16 @@
             document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
             card.classList.add('selected');
             selectedPrompt = loc.prompt;
+            promptDisplay.innerText = loc.prompt;
+            promptDisplay.style.display = 'block';
             checkReady();
         };
         grid.appendChild(card);
     });
 
     document.getElementById('selfieInput').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (file) {
-            uploadedFile = file;
+        if (e.target.files && e.target.files[0]) {
+            imageSelected = true;
             const reader = new FileReader();
             reader.onload = function(event) {
                 const img = document.getElementById('preview');
@@ -170,55 +170,26 @@
                 img.style.display = 'inline-block';
                 checkReady();
             }
-            reader.readAsDataURL(file);
+            reader.readAsDataURL(e.target.files[0]);
         }
     });
 
     function checkReady() {
-        if(uploadedFile && selectedPrompt) {
-            document.getElementById('genBtn').disabled = false;
+        if(imageSelected && selectedPrompt) {
+            genBtn.disabled = false;
         }
     }
-</script>
 
-<!-- Load API framework in the background safely -->
-<script type="module">
-    import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
-    
-    document.getElementById('genBtn').addEventListener('click', async () => {
-        const btn = document.getElementById('genBtn');
-        const loader = document.getElementById('statusText');
-        const resultImg = document.getElementById('resultImg');
-        
-        btn.disabled = true;
-        loader.style.display = 'block';
-        resultImg.style.display = 'none';
-
-        try {
-            const app = await Client.connect("InstantX/InstantID");
-            const result = await app.predict("/predict", [
-                uploadedFile,       
-                selectedPrompt,     
-                "ugly, blurry, distorted, low quality",                 
-                1.0,                
-                0.8,                
-                30,                 
-                "Euler v2"          
-            ]);
-
-            if(result && result.data && result.data[0]) {
-                resultImg.src = result.data[0].url;
-                resultImg.style.display = 'block';
-            } else {
-                alert("Generation structural mapping window timed out. Please retry.");
-            }
-        } catch (error) {
-            console.error(error);
-            alert("Connection error occurred. Retrying initialization via client space node.");
-        } finally {
-            btn.disabled = false;
-            loader.style.display = 'none';
-        }
+    genBtn.addEventListener('click', () => {
+        // Copy the text prompt to user clipboard automatically
+        navigator.clipboard.writeText(selectedPrompt).then(() => {
+            alert("📋 Location settings copied to clipboard! Now dropping your photo into the Free Face Engine.");
+            // Open the free engine securely in a new browser window tab
+            window.open("https://huggingface.co", "_blank");
+        }).catch(err => {
+            // Fallback if clipboard permission is denied
+            window.open("https://huggingface.co", "_blank");
+        });
     });
 </script>
 </body>
