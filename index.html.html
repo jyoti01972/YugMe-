@@ -4,11 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YugMe AI Studio</title>
-    <!-- Include the completely free, official Gradio Client library -->
-    <script type="module">
-        import { Client } from "https://jsdelivr.net";
-        window.GradioClient = Client;
-    </script>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -122,10 +117,8 @@
     </div>
 
     <h3>Select Your Historical Setting:</h3>
-    <!-- The Locations Grid -->
     <div class="grid" id="locationGrid"></div>
 
-    <!-- Generate Output Action Trigger -->
     <button class="action-btn" id="genBtn" disabled>Generate Portrait</button>
 
     <div class="result-section">
@@ -134,8 +127,8 @@
     </div>
 </div>
 
+<!-- Load UI Logic instantly first -->
 <script>
-    // Pure Database Array containing your target locations and accurate styling rules
     const locations = [
         { id: 1, name: "Ancient Babylon", emoji: "🦁", prompt: "High-fidelity historical portrait, executing flawless likeness retention of the source face. Subject's face is subtly textured by desert wind but strictly preserving original structural facial geometry. Draped in royal Mesopotamian deep blue wool robes with gold fringe. Background: Ishtar Gate of Babylon." },
         { id: 2, name: "Ancient Persia", emoji: "🏛️", prompt: "Cinematic ancient epic lighting, macro shot utilizing InstantID facial architecture to lock and protect the user's exact facial structure. Authentic Achaemenid Persian silk tunic with gold thread. Background: Grand stone staircases of Persepolis, Iran." },
@@ -150,9 +143,8 @@
     ];
 
     let selectedPrompt = "";
-    let uploadedBlob = null;
+    let uploadedFile = null;
 
-    // Build Layout UI Automatically
     const grid = document.getElementById('locationGrid');
     locations.forEach(loc => {
         const card = document.createElement('div');
@@ -167,11 +159,10 @@
         grid.appendChild(card);
     });
 
-    // Handle Local Image Upload and Display Preview
     document.getElementById('selfieInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
-            uploadedBlob = file;
+            uploadedFile = file;
             const reader = new FileReader();
             reader.onload = function(event) {
                 const img = document.getElementById('preview');
@@ -184,12 +175,16 @@
     });
 
     function checkReady() {
-        if(uploadedBlob && selectedPrompt) {
+        if(uploadedFile && selectedPrompt) {
             document.getElementById('genBtn').disabled = false;
         }
     }
+</script>
 
-    // Direct, Real-time Free API Face Swap Function Execution
+<!-- Load API framework in the background safely -->
+<script type="module">
+    import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
+    
     document.getElementById('genBtn').addEventListener('click', async () => {
         const btn = document.getElementById('genBtn');
         const loader = document.getElementById('statusText');
@@ -200,14 +195,31 @@
         resultImg.style.display = 'none';
 
         try {
-            // Establish direct link to open-source Hugging Face API without API keys
-            const app = await window.GradioClient.connect("InstantX/InstantID");
-            
-            // Execute the model logic passing the raw image blob data along with location parameters
+            const app = await Client.connect("InstantX/InstantID");
             const result = await app.predict("/predict", [
-                uploadedBlob,       // Face reference image input
-                selectedPrompt,     // Prompt instruction context string
-                "",                 // Negative prompt parameter field
-                1.0,                // Identity structural strength scale value
-                0.8,                // Image adaptation parameter coefficient
-                30,                 // Diffusion step iterations counter
+                uploadedFile,       
+                selectedPrompt,     
+                "ugly, blurry, distorted, low quality",                 
+                1.0,                
+                0.8,                
+                30,                 
+                "Euler v2"          
+            ]);
+
+            if(result && result.data && result.data[0]) {
+                resultImg.src = result.data[0].url;
+                resultImg.style.display = 'block';
+            } else {
+                alert("Generation structural mapping window timed out. Please retry.");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Connection error occurred. Retrying initialization via client space node.");
+        } finally {
+            btn.disabled = false;
+            loader.style.display = 'none';
+        }
+    });
+</script>
+</body>
+</html>
